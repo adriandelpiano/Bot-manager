@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
+            <div class="chat-info">
+                <h3>Bot Asistente</h3>
+                <p>en línea</p>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <!-- Los mensajes aparecerán aquí -->
+            <div class="message received">
+                <p>¡Hola! Soy tu asistente. ¿En qué puedo ayudarte?</p>
+                <span class="timestamp">10:00 AM</span>
+            </div>
+        </div>
+        <div class="chat-input-form">
+            <input type="text" id="message-input" placeholder="Escribe un mensaje...">
+            <button id="send-button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+            </button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
