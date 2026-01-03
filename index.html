@@ -1,34 +1,46 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-g">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Chat</title>
+    <title>Dashboard de Chat</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">
-            <img src="https://via.placeholder.com/40" alt="Avatar" class="avatar">
-            <div class="chat-info">
-                <h3>Bot Asistente</h3>
-                <p>en línea</p>
+    <div class="dashboard-container">
+        <!-- Columna de la lista de conversaciones -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h3>Chats</h3>
+            </div>
+            <div id="conversation-list" class="conversation-list">
+                <!-- Las conversaciones se cargarán aquí dinámicamente -->
+                <div class="conversation-item">
+                    <p>Cargando chats...</p>
+                </div>
             </div>
         </div>
-        <div class="chat-messages" id="chat-messages">
-            <!-- Los mensajes aparecerán aquí -->
-            <div class="message received">
-                <p>¡Hola! Soy tu asistente. ¿En qué puedo ayudarte?</p>
-                <span class="timestamp">10:00 AM</span>
+
+        <!-- Columna de la vista del chat -->
+        <div class="chat-view" id="chat-view">
+            <div id="chat-header" class="chat-header">
+                <h3>Selecciona un chat para empezar</h3>
             </div>
-        </div>
-        <div class="chat-input-form">
-            <input type="text" id="message-input" placeholder="Escribe un mensaje...">
-            <button id="send-button">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
-            </button>
+            <div id="chat-messages" class="chat-messages">
+                <!-- Los mensajes del chat seleccionado aparecerán aquí -->
+                <div class="message received">
+                    <p>Bienvenido al panel de control. Por favor, selecciona una conversación de la izquierda.</p>
+                </div>
+            </div>
+            <div id="chat-input-container" class="chat-input-form" style="display: none;">
+                <input type="text" id="message-input" placeholder="Escribe una respuesta manual...">
+                <button id="send-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+                </button>
+            </div>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>

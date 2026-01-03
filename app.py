@@ -1,38 +1,123 @@
-from flask import Flask, request, jsonify
+import sqlite3
+import os
+import requests
+from flask import Flask, jsonify, request
 from flask_cors import CORS
+from datetime import datetime
 
-# Inicializar la aplicación Flask
+# --- Configuration ---
+# This backend assumes it is in a directory that is a sibling to 'bot-dashboard'
+# e.g., /home/adrian/bot-whapp-pagina and /home/adrian/bot-dashboard
+try:
+    # Construct the absolute path to the database
+    # __file__ is /home/adrian/bot-whapp-pagina/app.py
+    # os.path.dirname(__file__) is /home/adrian/bot-whapp-pagina
+    # os.path.dirname(os.path.dirname(__file__)) is /home/adrian
+    DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'bot-dashboard', 'backend')
+    DB_PATH = os.path.join(DB_DIR, 'bot_dashboard.db')
+    BOT_PAGINA_SEND_URL = "http://localhost:5000/api/send_message_from_dashboard" # Assumes bot-pagina server runs on port 5000
+except NameError:
+    # This block is for environments where __file__ is not defined (e.g., some interactive interpreters)
+    DB_DIR = os.path.join(os.getcwd(), '..', 'bot-dashboard', 'backend')
+    DB_PATH = os.path.join(DB_DIR, 'bot_dashboard.db')
+    BOT_PAGINA_SEND_URL = "http://localhost:5000/api/send_message_from_dashboard"
+
 app = Flask(__name__)
+CORS(app) # Allow requests from the frontend
 
-# Configurar CORS para permitir peticiones desde cualquier origen.
-# Para producción, es mejor restringirlo a la URL de tu GitHub Pages.
-CORS(app)
+# --- Database Utilities (adapted from cli_chat_manager.py) ---
 
-# Endpoint para recibir mensajes del frontend
-@app.route('/api/message', methods=['POST'])
-def handle_message():
-    # Obtener el mensaje del cuerpo de la petición JSON
+def get_db_connection():
+    """Establishes a connection to the SQLite database."""
+    if not os.path.exists(DB_PATH):
+        raise FileNotFoundError(f"Database not found at {DB_PATH}. Make sure the 'bot-dashboard' project is in the correct location.")
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# --- API Endpoints ---
+
+@app.route("/api/conversations", methods=["GET"])
+def get_conversations():
+    """API endpoint to retrieve all conversations."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = """
+            SELECT
+                c.id AS contact_id,
+                c.phone_number,
+                c.name,
+                conv.is_human_intervening,
+                MAX(m.timestamp) AS last_message_timestamp,
+                (SELECT content FROM messages WHERE contact_id = c.id ORDER BY timestamp DESC LIMIT 1) AS last_message_content
+            FROM contacts c
+            LEFT JOIN conversations conv ON c.id = conv.contact_id
+            LEFT JOIN messages m ON c.id = m.contact_id
+            GROUP BY c.id
+            ORDER BY last_message_timestamp DESC;
+        """
+        cursor.execute(query)
+        conversations_raw = cursor.fetchall()
+        conn.close()
+        # Convert Row objects to dictionaries for JSON serialization
+        conversations = [dict(row) for row in conversations_raw]
+        return jsonify(conversations)
+    except Exception as e:
+        print(f"Error getting conversations: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/messages/<string:phone_number>", methods=["GET"])
+def get_messages(phone_number):
+    """API endpoint to retrieve messages for a specific phone number."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = """
+            SELECT
+                m.sender,
+                m.content,
+                m.timestamp
+            FROM messages m
+            JOIN contacts c ON m.contact_id = c.id
+            WHERE c.phone_number = ?
+            ORDER BY m.timestamp ASC;
+        """
+        cursor.execute(query, (phone_number,))
+        messages_raw = cursor.fetchall()
+        conn.close()
+        messages = [dict(row) for row in messages_raw]
+        return jsonify(messages)
+    except Exception as e:
+        print(f"Error getting messages for {phone_number}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/send", methods=["POST"])
+def send_manual_message():
+    """API endpoint to send a manual message."""
     data = request.get_json()
-    user_message = data.get('message', '').lower()
+    phone_number = data.get("phone_number")
+    message = data.get("message")
 
-    if not user_message:
-        return jsonify({'reply': 'No he recibido ningún mensaje.'}), 400
+    if not phone_number or not message:
+        return jsonify({"error": "phone_number and message are required"}), 400
 
-    # Lógica simple de respuesta del bot
-    bot_reply = ''
-    if 'hola' in user_message:
-        bot_reply = '¡Hola! Gracias por contactarme. ¿En qué puedo ayudarte?'
-    elif 'precio' in user_message:
-        bot_reply = 'Para información de precios, por favor contacta a un agente.'
-    elif 'gracias' in user_message:
-        bot_reply = '¡De nada! Estoy aquí para servirte.'
-    else:
-        bot_reply = 'He recibido tu mensaje. En breve te contactaré.'
+    try:
+        response = requests.post(
+            BOT_PAGINA_SEND_URL,
+            json={"phone_number": phone_number, "message": message}
+        )
+        response.raise_for_status()
+        return jsonify({"status": "success", "detail": response.json()}), response.status_code
+    except requests.exceptions.RequestException as e:
+        print(f"Error forwarding message to bot-pagina: {e}")
+        return jsonify({"error": f"Failed to connect to bot-pagina server: {e}"}), 503
 
-    # Devolver la respuesta del bot en formato JSON
-    return jsonify({'reply': bot_reply})
-
-# Iniciar el servidor si el script se ejecuta directamente
-if __name__ == '__main__':
-    # Escucha en todas las interfaces de red en el puerto 5001
-    app.run(host='0.0.0.0', port=5001, debug=True)
+if __name__ == "__main__":
+    # The port for this dashboard backend should not conflict with the bot-pagina server
+    dashboard_port = 5002
+    print(f"🚀 Dashboard Backend API running on http://0.0.0.0:{dashboard_port}")
+    print(f"Ensure the main bot server ('bot-pagina/server.py') is also running (likely on port 5000).")
+    app.run(host='0.0.0.0', port=dashboard_port, debug=True)
