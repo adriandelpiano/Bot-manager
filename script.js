@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Globals ---
     let currentContact = null;
-    const API_BASE_URL = 'https://contextually-unhabited-sommer.ngrok-free.dev'; 
+// Use the API_BASE_URL injected by the server in index.html
+    const API_BASE_URL = window.API_BASE_URL.replace(/"/g, '');
 
     // --- DOM Elements ---
     const conversationList = document.getElementById('conversation-list');
