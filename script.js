@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Globals ---
     let currentContact = null;
-    // NGROK_PUBLIC_URL from bot-pagina/.env
     const API_BASE_URL = 'https://contextually-unhabited-sommer.ngrok-free.dev'; 
 
     // --- DOM Elements ---
@@ -12,35 +11,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInputContainer = document.getElementById('chat-input-container');
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
+    // Debug elements
+    const testButton = document.getElementById('test-button');
+    const logOutput = document.getElementById('log-output');
 
-    // --- Functions ---
+    // --- Debug Functions ---
+    function logToScreen(message) {
+        console.log(message); // Also log to console for good measure
+        logOutput.textContent += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+        logOutput.scrollTop = logOutput.scrollHeight;
+    }
 
-    /**
-     * Renders a single message in the chat view.
-     * @param {object} msg - The message object { sender, content, timestamp }.
-     */
+    async function runApiTest() {
+        logToScreen("--- Iniciando Test de API ---");
+        const url = `${API_BASE_URL}/api/conversations`;
+        logToScreen(`1. URL del Fetch: ${url}`);
+        
+        try {
+            logToScreen("2. Realizando petición fetch...");
+            const response = await fetch(url);
+            logToScreen(`3. Respuesta recibida. Status: ${response.status} ${response.statusText}`);
+            
+            const headers = {};
+            response.headers.forEach((value, key) => {
+                headers[key] = value;
+            });
+            logToScreen(`4. Cabeceras de la respuesta:\n${JSON.stringify(headers, null, 2)}`);
+
+            logToScreen("5. Leyendo cuerpo de la respuesta como texto plano...");
+            const rawText = await response.text();
+            logToScreen(`6. Respuesta en texto plano (RAW):\n---\n${rawText}\n---`);
+
+            logToScreen("7. Intentando parsear texto como JSON...");
+            const jsonData = JSON.parse(rawText);
+            logToScreen("8. ¡Éxito! El JSON es válido.");
+            logToScreen(`9. Chats encontrados: ${jsonData.length}`);
+        } catch (error) {
+            logToScreen(`--- ¡ERROR! ---`);
+            logToScreen(error.toString());
+            logToScreen(`Stack Trace: ${error.stack}`);
+        }
+    }
+
+
+    // --- Core Functions ---
+
     function renderMessage(msg) {
         const messageElement = document.createElement('div');
-        // Sender can be 'client', 'bot', or 'human'
         messageElement.classList.add('message', msg.sender.toLowerCase());
-
         const senderLabel = document.createElement('div');
         senderLabel.classList.add('sender-label');
+        if (msg.sender.toLowerCase() === 'human') senderLabel.textContent = 'Tú (Manual)';
+        else if (msg.sender.toLowerCase() === 'bot') senderLabel.textContent = 'Bot';
         
-        if (msg.sender.toLowerCase() === 'human') {
-            senderLabel.textContent = 'Tú (Manual)';
-        } else if (msg.sender.toLowerCase() === 'bot') {
-            senderLabel.textContent = 'Bot';
-        } else {
-            // For 'client', we don't show a label as it's implied.
-        }
-
         const contentElement = document.createElement('p');
         contentElement.textContent = msg.content;
-        
         const timestampElement = document.createElement('span');
         timestampElement.classList.add('timestamp');
-        // Format timestamp like '14:05'
         const date = new Date(msg.timestamp);
         timestampElement.textContent = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
@@ -50,57 +77,38 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.appendChild(messageElement);
     }
 
-    /**
-     * Fetches and displays messages for a given phone number.
-     * @param {string} phoneNumber - The phone number of the contact.
-     */
     async function loadMessages(phoneNumber) {
         chatMessages.innerHTML = 'Cargando mensajes...';
         try {
             const response = await fetch(`${API_BASE_URL}/api/messages/${phoneNumber}`);
             if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
-            
             const messages = await response.json();
-            chatMessages.innerHTML = ''; // Clear loading message
+            chatMessages.innerHTML = '';
             messages.forEach(renderMessage);
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         } catch (error) {
-            console.error('Error cargando mensajes:', error);
+            logToScreen(`Error en loadMessages: ${error.message}`);
             chatMessages.innerHTML = `<div class="message client"><p>Error al cargar mensajes. ${error.message}</p></div>`;
         }
     }
 
-    /**
-     * Sets the currently active conversation and loads its messages.
-     * @param {object} contact - The contact object for the conversation.
-     */
     function selectConversation(contact, conversationElement) {
         currentContact = contact;
-
-        // Update header
         chatHeader.innerHTML = `<h3>${contact.name || contact.phone_number}</h3>`;
-        
-        // Show message input
         messageInputContainer.style.display = 'flex';
-
-        // Update selected item in the list
         document.querySelectorAll('.conversation-item').forEach(el => el.classList.remove('selected'));
         conversationElement.classList.add('selected');
-
-        // Load messages
         loadMessages(contact.phone_number);
     }
 
-    /**
-     * Fetches all conversations and populates the sidebar.
-     */
     async function loadConversations() {
         try {
             const response = await fetch(`${API_BASE_URL}/api/conversations`);
-            if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
-
+            if (!response.ok) {
+                 throw new Error(`Respuesta del servidor no fue OK: ${response.status}`);
+            }
             const conversations = await response.json();
-            conversationList.innerHTML = ''; // Clear loading message
+            conversationList.innerHTML = ''; 
 
             if (conversations.length === 0) {
                 conversationList.innerHTML = '<div class="conversation-item"><p>No hay conversaciones.</p></div>';
@@ -111,33 +119,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = document.createElement('div');
                 item.classList.add('conversation-item');
                 item.dataset.phoneNumber = conv.phone_number;
-
                 const name = conv.name || conv.phone_number;
                 const lastMessage = conv.last_message_content || 'No hay mensajes.';
                 const status = conv.is_human_intervening ? 'HUMANO' : 'BOT';
-
-                item.innerHTML = `
-                    <h4>${name}</h4>
-                    <p>${lastMessage}</p>
-                    <p class="status ${status.toLowerCase()}">Modo: ${status}</p>
-                `;
-
+                item.innerHTML = `<h4>${name}</h4><p>${lastMessage}</p><p class="status ${status.toLowerCase()}">Modo: ${status}</p>`;
                 item.addEventListener('click', () => selectConversation(conv, item));
                 conversationList.appendChild(item);
             });
         } catch (error) {
-            console.error('Error cargando conversaciones:', error);
-            conversationList.innerHTML = `<div class="conversation-item"><p>Error al cargar chats. ${error.message}</p></div>`;
+            logToScreen(`Error en loadConversations: ${error.message}`);
+            conversationList.innerHTML = `<div class="conversation-item"><p>Error al cargar chats. Revisa la consola de debug.</p></div>`;
         }
     }
 
-    /**
-     * Sends a manual message from the input box.
-     */
     async function sendManualMessage() {
         const messageText = messageInput.value.trim();
         if (!messageText || !currentContact) return;
-
         try {
             const response = await fetch(`${API_BASE_URL}/api/send_message_from_dashboard`, {
                 method: 'POST',
@@ -147,31 +144,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     message: messageText
                 })
             });
-
             if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
-            
-            messageInput.value = ''; // Clear input
-
-            // Optimistically render the sent message, but it's better to reload
-            // to get the confirmed timestamp and order from the database.
-            // A small delay allows the DB to update before we fetch.
-            setTimeout(() => {
-                loadMessages(currentContact.phone_number);
-            }, 500);
-
+            messageInput.value = '';
+            setTimeout(() => { loadMessages(currentContact.phone_number); }, 500);
         } catch (error) {
-            console.error('Error al enviar mensaje:', error);
-            // Optionally, show an error message in the chat
+            logToScreen(`Error en sendManualMessage: ${error.message}`);
         }
     }
 
     // --- Event Listeners ---
     sendButton.addEventListener('click', sendManualMessage);
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendManualMessage();
-        }
-    });
+    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendManualMessage(); });
+    testButton.addEventListener('click', runApiTest);
 
     // --- Initial Load ---
     loadConversations();
