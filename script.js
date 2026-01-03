@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Globals ---
     let currentContact = null;
+    // NGROK_PUBLIC_URL from bot-pagina/.env
+    const API_BASE_URL = 'https://contextually-unhabited-sommer.ngrok-free.dev'; 
 
     // --- DOM Elements ---
     const conversationList = document.getElementById('conversation-list');
@@ -55,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadMessages(phoneNumber) {
         chatMessages.innerHTML = 'Cargando mensajes...';
         try {
-            const response = await fetch(`/api/messages/${phoneNumber}`);
+            const response = await fetch(`${API_BASE_URL}/api/messages/${phoneNumber}`);
             if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
             
             const messages = await response.json();
@@ -94,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function loadConversations() {
         try {
-            const response = await fetch('/api/conversations');
+            const response = await fetch(`${API_BASE_URL}/api/conversations`);
             if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
 
             const conversations = await response.json();
@@ -137,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!messageText || !currentContact) return;
 
         try {
-            const response = await fetch('/api/send`, {
+            const response = await fetch(`${API_BASE_URL}/api/send_message_from_dashboard`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
