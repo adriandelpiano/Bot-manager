@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- Globals ---
     let currentContact = null;
-    const API_BASE_URL = 'http://localhost:5002'; // Corresponds to the dashboard backend port
 
     // --- DOM Elements ---
     const conversationList = document.getElementById('conversation-list');
@@ -56,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadMessages(phoneNumber) {
         chatMessages.innerHTML = 'Cargando mensajes...';
         try {
-            const response = await fetch(`${API_BASE_URL}/api/messages/${phoneNumber}`);
+            const response = await fetch(`/api/messages/${phoneNumber}`);
             if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
             
             const messages = await response.json();
@@ -95,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function loadConversations() {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/conversations`);
+            const response = await fetch('/api/conversations');
             if (!response.ok) throw new Error(`Error del servidor: ${response.status}`);
 
             const conversations = await response.json();
@@ -138,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!messageText || !currentContact) return;
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/send`, {
+            const response = await fetch('/api/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

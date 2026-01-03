@@ -1,32 +1,23 @@
 import sqlite3
 import os
 import requests
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime
 
 # --- Configuration ---
-# This backend assumes it is in a directory that is a sibling to 'bot-dashboard'
-# e.g., /home/adrian/bot-whapp-pagina and /home/adrian/bot-dashboard
 try:
-    # Construct the absolute path to the database
-    # __file__ is /home/adrian/bot-whapp-pagina/app.py
-    # os.path.dirname(__file__) is /home/adrian/bot-whapp-pagina
-    # os.path.dirname(os.path.dirname(__file__)) is /home/adrian
     DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'bot-dashboard', 'backend')
     DB_PATH = os.path.join(DB_DIR, 'bot_dashboard.db')
-    BOT_PAGINA_SEND_URL = "http://localhost:5000/api/send_message_from_dashboard" # Assumes bot-pagina server runs on port 5000
+    BOT_PAGINA_SEND_URL = "http://localhost:5000/api/send_message_from_dashboard"
 except NameError:
-    # This block is for environments where __file__ is not defined (e.g., some interactive interpreters)
     DB_DIR = os.path.join(os.getcwd(), '..', 'bot-dashboard', 'backend')
     DB_PATH = os.path.join(DB_DIR, 'bot_dashboard.db')
     BOT_PAGINA_SEND_URL = "http://localhost:5000/api/send_message_from_dashboard"
 
-app = Flask(__name__)
-CORS(app) # Allow requests from the frontend
+# Initialize Flask to serve static files from the current directory ('bot-whapp-pagina')
+app = Flask(__name__, static_folder='.', static_url_path='')
 
-# --- Database Utilities (adapted from cli_chat_manager.py) ---
-
+# --- Database Utilities ---
 def get_db_connection():
     """Establishes a connection to the SQLite database."""
     if not os.path.exists(DB_PATH):
@@ -35,8 +26,13 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- API Endpoints ---
+# --- Frontend Route ---
+@app.route('/')
+def index():
+    """Serves the main index.html file."""
+    return send_from_directory('.', 'index.html')
 
+# --- API Endpoints ---
 @app.route("/api/conversations", methods=["GET"])
 def get_conversations():
     """API endpoint to retrieve all conversations."""
@@ -60,7 +56,6 @@ def get_conversations():
         cursor.execute(query)
         conversations_raw = cursor.fetchall()
         conn.close()
-        # Convert Row objects to dictionaries for JSON serialization
         conversations = [dict(row) for row in conversations_raw]
         return jsonify(conversations)
     except Exception as e:
@@ -116,8 +111,8 @@ def send_manual_message():
         return jsonify({"error": f"Failed to connect to bot-pagina server: {e}"}), 503
 
 if __name__ == "__main__":
-    # The port for this dashboard backend should not conflict with the bot-pagina server
     dashboard_port = 5002
-    print(f"🚀 Dashboard Backend API running on http://0.0.0.0:{dashboard_port}")
-    print(f"Ensure the main bot server ('bot-pagina/server.py') is also running (likely on port 5000).")
+    print(f"🚀 Dashboard running on http://localhost:{dashboard_port}")
+    print("   Access the dashboard by visiting that URL in your browser.")
+    print(f"   Ensure the main bot server ('bot-pagina/server.py') is also running (likely on port 5000).")
     app.run(host='0.0.0.0', port=dashboard_port, debug=True)
